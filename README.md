@@ -16,6 +16,9 @@
 Hadoop/
 ├── docker-compose.yml   # Конфигурация всех сервисов кластера
 ├── learning_plan.md     # Пошаговый план обучения (HDFS -> MapReduce -> Spark)
+├── notebooks/           # Jupyter ноутбуки
+│   ├── nyc_taxi_analysis.ipynb
+│   └── spark_and_hdfs_tutorial.ipynb
 └── README.md            # Документация проекта (этот файл)
 ```
 
@@ -42,10 +45,42 @@ docker-compose ps
 - **YARN ResourceManager**: [http://localhost:8088](http://localhost:8088)
 - **Spark Master**: [http://localhost:8090](http://localhost:8090)
 - **MapReduce History Server**: [http://localhost:8188](http://localhost:8188)
+- **Jupyter Notebook**: [http://localhost:8888](http://localhost:8888) (пароль/токен см. в логах `docker-compose logs jupyter`)
 
 ## 🧑‍💻 Работа с проектом
 
-### 1. Работа с HDFS (CLI)
+### 1. Jupyter Notebook (PySpark)
+Самый удобный способ работы с данными.
+
+**Быстрый старт с обучением:**
+1. Откройте [http://localhost:8888](http://localhost:8888).
+2. Перейдите в папку `work`.
+3. Откройте файл **`spark_and_hdfs_tutorial.ipynb`**.
+4. Это интерактивный урок: читайте описание и запускайте код ячейка за ячейкой (Shift+Enter).
+
+**Проверка работы вручную:**
+1. Создайте новый ноутбук.
+2. Вставьте код:
+
+```python
+from pyspark.sql import SparkSession
+
+# Создаем SparkSession с подключением к кластеру
+spark = SparkSession.builder \
+    .appName("JupyterTest") \
+    .master("spark://spark-master:7077") \
+    .getOrCreate()
+
+# Проверяем работу
+data = [("Done", 1), ("Success", 2)]
+df = spark.createDataFrame(data, ["Status", "ID"])
+df.show()
+
+print(f"Spark Version: {spark.version}")
+spark.stop()
+```
+
+### 2. Работа с HDFS (CLI)
 Создание папки и загрузка файла:
 ```bash
 # Создать директорию пользователя
