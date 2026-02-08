@@ -107,8 +107,8 @@ services:
     ports:
       - 8081:8081
     environment:
-      - SPARK_WORKER_CORES=1
-      - SPARK_WORKER_MEMORY=1G
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=2G
     networks:
       - hadoop_network
     depends_on:
