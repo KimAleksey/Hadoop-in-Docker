@@ -15,6 +15,7 @@ services:
       - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
       - HDFS_CONF_dfs_replication=1
       - HDFS_CONF_dfs_webhdfs_enabled=true
+      - HDFS_CONF_dfs_permissions_enabled=false
     networks:
       - hadoop_network
 
@@ -31,6 +32,7 @@ services:
       - SERVICE_PRECONDITION=namenode:9870
       - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
       - HDFS_CONF_dfs_replication=1
+      - HDFS_CONF_dfs_permissions_enabled=false
     networks:
       - hadoop_network
     depends_on:
@@ -113,6 +115,21 @@ services:
       - spark-master
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
 
+  spark-thrift-server:
+    image: apache/spark:3.5.0
+    container_name: spark-thrift-server
+    environment:
+      - SPARK_MASTER=spark://spark-master:7077
+      - HIVE_METASTORE_URIS=thrift://hive-metastore:9083
+    ports:
+      - 10000:10000
+    networks:
+      - hadoop_network
+    depends_on:
+      - spark-master
+      - hive-metastore
+    command: /opt/spark/bin/spark-submit --class org.apache.spark.sql.hive.thriftserver.HiveThriftServer2 --name "Thrift JDBC/ODBC Server" --master spark://spark-master:7077 --conf spark.sql.warehouse.dir=hdfs://namenode:9000/user/hive/warehouse --conf spark.hadoop.hive.metastore.uris=thrift://hive-metastore:9083 --hiveconf hive.server2.thrift.port=10000 --hiveconf hive.server2.thrift.bind.host=0.0.0.0
+
   jupyter:
     image: jupyter/pyspark-notebook:latest
     container_name: jupyter
@@ -120,14 +137,51 @@ services:
       - 8888:8888
     environment:
       - SPARK_MASTER=spark://spark-master:7077
+      - SPARK_OPTS=--conf spark.hadoop.hive.metastore.uris=thrift://hive-metastore:9083
     volumes:
       - ./notebooks:/home/jovyan/work
     networks:
       - hadoop_network
 
+  hive-metastore-postgresql:
+    image: postgres:13
+    container_name: hive-metastore-postgresql
+    environment:
+      - POSTGRES_DB=metastore_db
+      - POSTGRES_USER=hive
+      - POSTGRES_PASSWORD=hive
+    networks:
+      - hadoop_network
+    volumes:
+      - hive_metastore_db_data:/var/lib/postgresql/data
+
+  hive-metastore:
+    image: apache/hive:4.0.0
+    container_name: hive-metastore
+    environment:
+      - SERVICE_NAME=metastore
+      - DB_DRIVER=postgres
+      - TYPE=postgres
+      - POSTGRES_USER=hive
+      - POSTGRES_PASSWORD=hive
+      - DB_URL=jdbc:postgresql://hive-metastore-postgresql:5432/metastore_db
+      - HDFS_NAMENODE=namenode:9000
+    ports:
+      - 9083:9083
+    command: /opt/hive/bin/hive --service metastore
+    volumes:
+      - ./connectors/postgresql-42.6.0.jar:/opt/hive/lib/postgresql-42.6.0.jar
+      - ./conf/hive-site.xml:/opt/hive/conf/hive-site.xml
+    networks:
+      - hadoop_network
+    depends_on:
+      - namenode
+      - hive-metastore-postgresql
+
 volumes:
   hadoop_namenode:
   hadoop_datanode:
+  hive_metastore_db_data:
 
 networks:
   hadoop_network:
