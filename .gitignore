@@ -1,0 +1,5 @@
+.DS_Store
+notebooks/hadoop/
+notebooks/spark-warehouse/
+notebooks/.ipynb_checkpoints/
+*.log
